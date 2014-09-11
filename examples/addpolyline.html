@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Leaflet.draw vector draw polyline handlers</title>
+
+	<link rel="stylesheet" href="libs/leaflet.css" />
+
+	<script src="libs/leaflet-src.js"></script>
+
+	<script src="../src/draw/handler/Draw.Feature.js"></script>
+	<script src="../src/draw/handler/Draw.Polyline.js"></script>
+	<script src="../src/draw/handler/Draw.PolylineTouch.js"></script>
+
+</head>
+<body>
+	<div id="map" style="width: 800px; height: 600px; border: 1px solid #ccc"></div>
+	<div id="result"></div>
+
+	<script>
+		var osmUrl = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+		osmAttrib = '&copy; <a href="http://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+		osm = L.tileLayer(osmUrl, {maxZoom: 18, attribution: osmAttrib});
+		map = new L.Map('map', {layers: [osm], center: new L.LatLng(51.505, -0.04), zoom: 13});
+
+		var newPolyline = new L.Draw.PolylineTouch(map);
+		newPolyline.enable();
+
+		map.on('draw:created', function (e) {
+			var type = e.layerType,
+			layer = e.layer,
+			shape = layer.toGeoJSON();
+			document.getElementById('result').innerText  = JSON.stringify(shape);
+		});
+		
+	</script>
+</body>
+</html>

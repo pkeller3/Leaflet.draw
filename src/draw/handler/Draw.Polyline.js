@@ -13,7 +13,7 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 			timeout: 2500
 		},
 		icon: new L.DivIcon({
-			iconSize: new L.Point(8, 8),
+			iconSize: new L.Point(10, 10),
 			className: 'leaflet-div-icon leaflet-editing-icon'
 		}),
 		guidelineDistance: 20,
@@ -180,8 +180,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 	_vertexChanged: function (latlng, added) {
 		this._updateFinishHandler();
 
-		this._updateRunningMeasure(latlng, added);
-
 		this._clearGuides();
 
 	},
@@ -243,7 +241,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 		}
 	},
 
-
 	_drawGuide: function (pointA, pointB) {
 		var length = Math.floor(Math.sqrt(Math.pow((pointB.x - pointA.x), 2) + Math.pow((pointB.y - pointA.y), 2))),
 			guidelineDistance = this.options.guidelineDistance,
@@ -294,32 +291,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 			}
 		}
 	},
-
-	_updateRunningMeasure: function (latlng, added) {
-		var markersLength = this._markers.length,
-			previousMarkerIndex, distance;
-
-		if (this._markers.length === 1) {
-			this._measurementRunningTotal = 0;
-		} else {
-			previousMarkerIndex = markersLength - (added ? 2 : 1);
-			distance = latlng.distanceTo(this._markers[previousMarkerIndex].getLatLng());
-
-			this._measurementRunningTotal += distance * (added ? 1 : -1);
-		}
-	},
-
-	_getMeasurementString: function () {
-		var currentLatLng = this._currentLatLng,
-			previousLatLng = this._markers[this._markers.length - 1].getLatLng(),
-			distance;
-
-		// calculate the distance from the last fixed point to the mouse position
-		distance = this._measurementRunningTotal + currentLatLng.distanceTo(previousLatLng);
-
-		return L.GeometryUtil.readableDistance(distance, this.options.metric);
-	},
-
 
 	_clearHideErrorTimeout: function () {
 		if (this._hideErrorTimeout) {
