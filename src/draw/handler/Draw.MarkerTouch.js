@@ -42,25 +42,25 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 		if (e.touches.length === 1) {
 			var normalisedEvent = this._normaliseEvent(e);
 			this._latlng = normalisedEvent.latlng;
-			this.touchOriginPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
+			this._touchOriginPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
 		}
 	},
 	_onTouchMove: function (e) {
 		// Ensure we saved the starting point
-		if (this.touchOriginPoint) {
+		if (this._touchOriginPoint) {
 			var normalisedEvent = this._normaliseEvent(e);
 			this._touchEndPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
 		}
 	},
 	_onTouchEnd: function (e) {
 		// Make sure we have a starting point
-		if (this.touchOriginPoint) {
+		if (this._touchOriginPoint) {
 			// If we have an en point we need to see how much it's moved before we decide if we save
 			// If there is no _touchEndPoint we save straight away
 			if (this._touchEndPoint) {
 				// We detect clicks within a certain tolerance, otherwise let it
 				// be interpreted as a drag by the map
-				var distanceMoved = L.point(this._touchEndPoint).distanceTo(this.touchOriginPoint);
+				var distanceMoved = L.point(this._touchEndPoint).distanceTo(this._touchOriginPoint);
 				if (Math.abs(distanceMoved) < 9 * (window.devicePixelRatio || 1)) {
 					this._fireTouchCreatedEvent();
 				}
@@ -69,7 +69,7 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 			}
 		}
 		// No matter what remove the start and en point ready for the next touch.
-		delete this.touchOriginPoint;
+		delete this._touchOriginPoint;
 		delete this._latlng;
 		delete this._touchEndPoint;
 	},
