@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Leaflet.draw vector draw marker handlers</title>
+
+	<link rel="stylesheet" href="libs/leaflet.css" />
+
+	<script src="libs/leaflet-src.js"></script>
+
+	<script src="../src/draw/handler/Draw.Feature.js"></script>
+	<script src="../src/draw/handler/Draw.Marker.js"></script>
+	<script src="../src/draw/handler/Draw.MarkerTouch.js"></script>
+
+</head>
+<body>
+	<div id="map" style="width: 800px; height: 600px; border: 1px solid #ccc"></div>
+	<div id="result"></div>
+
+	<script>
+		var osmUrl = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+			osmAttrib = '&copy; <a href="http://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+			osm = L.tileLayer(osmUrl, {maxZoom: 18, attribution: osmAttrib});
+			map = new L.Map('map', {layers: [osm], center: new L.LatLng(51.505, -0.04), zoom: 13});
+
+		L.polygon([
+			[51.509, -0.08],
+			[51.503, -0.06],
+			[51.51, -0.047]
+		]).addTo(map).bindPopup("I am a polygon.");
+
+		var newMarker = new L.Draw.MarkerTouch(map);
+		newMarker.enable();
+
+		map.on('draw:created', function (e) {
+  			var type = e.layerType,
+  			layer = e.layer,
+  			shape = layer.toGeoJSON();
+  			document.getElementById('result').innerText  = JSON.stringify(shape);
+		});
+		
+	</script>
+</body>
+</html>

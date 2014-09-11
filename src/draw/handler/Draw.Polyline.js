@@ -27,13 +27,10 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 			clickable: true
 		},
 		metric: true, // Whether to use the metric meaurement system or imperial
-		showLength: true, // Whether to display distance in the tooltip
 		zIndexOffset: 2000 // This should be > than the highest z-index any map layers
 	},
 
 	initialize: function (map, options) {
-		// Need to set this here to ensure the correct message is used.
-		this.options.drawError.message = L.drawLocal.draw.handlers.polyline.error;
 
 		// Merge default drawError options with custom options
 		if (options && options.drawError) {
@@ -55,8 +52,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 			this._map.addLayer(this._markerGroup);
 
 			this._poly = new L.Polyline([], this.options.shapeOptions);
-
-			this._tooltip.updateContent(this._getTooltipText());
 
 			// Make a transparent marker that will used to catch click events. These click
 			// events will create the vertices. We need to do this so we can ensure that
@@ -136,14 +131,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 	addVertex: function (latlng) {
 		var markersLength = this._markers.length;
 
-		if (markersLength > 0 && !this.options.allowIntersection && this._poly.newLatLngIntersects(latlng)) {
-			this._showErrorTooltip();
-			return;
-		}
-		else if (this._errorShown) {
-			this._hideErrorTooltip();
-		}
-
 		this._markers.push(this._createMarker(latlng));
 
 		this._poly.addLatLng(latlng);
@@ -156,13 +143,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 	},
 
 	_finishShape: function () {
-		var intersects = this._poly.newLatLngIntersects(this._poly.getLatLngs()[0], true);
-
-		if ((!this.options.allowIntersection && intersects) || !this._shapeIsValid()) {
-			this._showErrorTooltip();
-			return;
-		}
-
 		this._fireCreatedEvent();
 		this.disable();
 		if (this.options.repeatMode) {
@@ -188,8 +168,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 		// should this be moved to _updateGuide() ?
 		this._currentLatLng = latlng;
 
-		this._updateTooltip(latlng);
-
 		// Update the guide line
 		this._updateGuide(newPos);
 
@@ -206,7 +184,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 
 		this._clearGuides();
 
-		this._updateTooltip();
 	},
 
 	_onMouseDown: function (e) {
@@ -266,17 +243,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 		}
 	},
 
-	_updateTooltip: function (latLng) {
-		var text = this._getTooltipText();
-
-		if (latLng) {
-			this._tooltip.updatePosition(latLng);
-		}
-
-		if (!this._errorShown) {
-			this._tooltip.updateContent(text);
-		}
-	},
 
 	_drawGuide: function (pointA, pointB) {
 		var length = Math.floor(Math.sqrt(Math.pow((pointB.x - pointA.x), 2) + Math.pow((pointB.y - pointA.y), 2))),
@@ -306,8 +272,7 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 
 			//add guide dash to guide container
 			dash = L.DomUtil.create('div', 'leaflet-draw-guide-dash', this._guidesContainer);
-			dash.style.backgroundColor =
-				!this._errorShown ? this.options.shapeOptions.color : this.options.drawError.color;
+			dash.style.backgroundColor = !this._errorShown ? this.options.shapeOptions.color : this.options.drawError.color;
 
 			L.DomUtil.setPosition(dash, dashPoint);
 		}
@@ -328,32 +293,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 				this._guidesContainer.removeChild(this._guidesContainer.firstChild);
 			}
 		}
-	},
-
-	_getTooltipText: function () {
-		var showLength = this.options.showLength,
-			labelText, distanceStr;
-
-		if (this._markers.length === 0) {
-			labelText = {
-				text: L.drawLocal.draw.handlers.polyline.tooltip.start
-			};
-		} else {
-			distanceStr = showLength ? this._getMeasurementString() : '';
-
-			if (this._markers.length === 1) {
-				labelText = {
-					text: L.drawLocal.draw.handlers.polyline.tooltip.cont,
-					subtext: distanceStr
-				};
-			} else {
-				labelText = {
-					text: L.drawLocal.draw.handlers.polyline.tooltip.end,
-					subtext: distanceStr
-				};
-			}
-		}
-		return labelText;
 	},
 
 	_updateRunningMeasure: function (latlng, added) {
@@ -381,37 +320,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 		return L.GeometryUtil.readableDistance(distance, this.options.metric);
 	},
 
-	_showErrorTooltip: function () {
-		this._errorShown = true;
-
-		// Update tooltip
-		this._tooltip
-			.showAsError()
-			.updateContent({ text: this.options.drawError.message });
-
-		// Update shape
-		this._updateGuideColor(this.options.drawError.color);
-		this._poly.setStyle({ color: this.options.drawError.color });
-
-		// Hide the error after 2 seconds
-		this._clearHideErrorTimeout();
-		this._hideErrorTimeout = setTimeout(L.Util.bind(this._hideErrorTooltip, this), this.options.drawError.timeout);
-	},
-
-	_hideErrorTooltip: function () {
-		this._errorShown = false;
-
-		this._clearHideErrorTimeout();
-
-		// Revert tooltip
-		this._tooltip
-			.removeError()
-			.updateContent(this._getTooltipText());
-
-		// Revert shape
-		this._updateGuideColor(this.options.shapeOptions.color);
-		this._poly.setStyle({ color: this.options.shapeOptions.color });
-	},
 
 	_clearHideErrorTimeout: function () {
 		if (this._hideErrorTimeout) {

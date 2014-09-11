@@ -17,23 +17,35 @@ L.Draw.Feature = L.Handler.extend({
 	},
 
 	enable: function () {
-		if (this._enabled) { return; }
+		if (this._enabled) {
+			return;
+		}
 
 		L.Handler.prototype.enable.call(this);
 
-		this.fire('enabled', { handler: this.type });
+		this.fire('enabled', {
+			handler: this.type
+		});
 
-		this._map.fire('draw:drawstart', { layerType: this.type });
+		this._map.fire('draw:drawstart', {
+			layerType: this.type
+		});
 	},
 
 	disable: function () {
-		if (!this._enabled) { return; }
+		if (!this._enabled) {
+			return;
+		}
 
 		L.Handler.prototype.disable.call(this);
 
-		this._map.fire('draw:drawstop', { layerType: this.type });
+		this._map.fire('draw:drawstop', {
+			layerType: this.type
+		});
 
-		this.fire('disabled', { handler: this.type });
+		this.fire('disabled', {
+			handler: this.type
+		});
 	},
 
 	addHooks: function () {
@@ -44,8 +56,6 @@ L.Draw.Feature = L.Handler.extend({
 
 			map.getContainer().focus();
 
-			this._tooltip = new L.Tooltip(this._map);
-
 			L.DomEvent.on(this._container, 'keyup', this._cancelDrawing, this);
 		}
 	},
@@ -53,9 +63,6 @@ L.Draw.Feature = L.Handler.extend({
 	removeHooks: function () {
 		if (this._map) {
 			L.DomUtil.enableTextSelection();
-
-			this._tooltip.dispose();
-			this._tooltip = null;
 
 			L.DomEvent.off(this._container, 'keyup', this._cancelDrawing, this);
 		}
@@ -66,7 +73,10 @@ L.Draw.Feature = L.Handler.extend({
 	},
 
 	_fireCreatedEvent: function (layer) {
-		this._map.fire('draw:created', { layer: layer, layerType: this.type });
+		this._map.fire('draw:created', {
+			layer: layer,
+			layerType: this.type
+		});
 	},
 
 	// Cancel drawing when the escape key is pressed

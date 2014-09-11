@@ -20,7 +20,6 @@ L.Draw.Marker = L.Draw.Feature.extend({
 		L.Draw.Feature.prototype.addHooks.call(this);
 
 		if (this._map) {
-			this._tooltip.updateContent({ text: L.drawLocal.draw.handlers.marker.tooltip.start });
 
 			// Same mouseMarker as in Draw.Polyline
 			if (!this._mouseMarker) {
@@ -66,7 +65,6 @@ L.Draw.Marker = L.Draw.Feature.extend({
 	_onMouseMove: function (e) {
 		var latlng = e.latlng;
 
-		this._tooltip.updatePosition(latlng);
 		this._mouseMarker.setLatLng(latlng);
 
 		if (!this._marker) {
@@ -79,8 +77,7 @@ L.Draw.Marker = L.Draw.Feature.extend({
 			this._map
 				.on('click', this._onClick, this)
 				.addLayer(this._marker);
-		}
-		else {
+		} else {
 			latlng = this._mouseMarker.getLatLng();
 			this._marker.setLatLng(latlng);
 		}
@@ -96,7 +93,10 @@ L.Draw.Marker = L.Draw.Feature.extend({
 	},
 
 	_fireCreatedEvent: function () {
-		var marker = new L.Marker(this._marker.getLatLng(), { icon: this.options.icon });
+
+		var marker = new L.Marker(this._marker.getLatLng(), {
+			icon: this.options.icon
+		});
 		L.Draw.Feature.prototype._fireCreatedEvent.call(this, marker);
 	}
 });
