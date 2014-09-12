@@ -1,5 +1,7 @@
 /*
-	A simpler implementation works by mimicking the click event but I had problems overlaying over objects with popups. One of the reasons the mouse version uses a marker.
+	Design choice. Mimic click event vs listen to touchstart touchend. 
+	Mimic 
+	One of the reasons the mouse version uses a marker.
 */
 L.Draw.MarkerTouch = L.Draw.Marker.extend({
 	initialize: function (map, options) {

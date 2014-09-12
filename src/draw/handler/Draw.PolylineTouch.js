@@ -34,7 +34,6 @@ L.Draw.PolylineTouch = L.Draw.Polyline.extend({
 			originalEvent: e
 		};
 	},
-
 	_updateFinishHandler: function () {
 		L.Draw.Polyline.prototype._updateFinishHandler.call(this);
 		var distance, distancePixels,
