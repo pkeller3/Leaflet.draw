@@ -42,8 +42,11 @@ L.Draw.PolygonTouch = L.Draw.Polygon.extend({
 			markerCount = this._markers.length,
 			resolution = map.containerPointToLatLng([0, 0]).distanceTo(map.containerPointToLatLng([0, 1]));
 
-		// The last marker should have a click handler to close the Polygon
+		// It's not really a polygon if it's less than four points (If start and end points are the same). So we won't even try and close it until it is valid.
 		if (markerCount > 3) {
+			// The last marker should have a click handler to close the Polygon.
+			// When touch I don't use the click event for the marker, this is because we need would need a relatively large marker to click on.
+			// Graphically this can look a bit crap. With this model we exffectively have a click area of 24 pixels from the center of the marker no matter marker size.
 			distance = this._markers[0].getLatLng().distanceTo(this._markers[markerCount - 1].getLatLng());
 			distancePixels = Math.floor(distance / resolution);
 			if (distancePixels < 12 * (window.devicePixelRatio || 1)) {
@@ -73,7 +76,7 @@ L.Draw.PolygonTouch = L.Draw.Polygon.extend({
 		// Make sure we have a starting point
 
 		if (this._touchOriginPoint) {
-			// If we have an en point we need to see how much it's moved before we decide if we save
+			// If we have an end point we need to see how much it's moved before we decide if we save
 			// If there is no _touchEndPoint we save straight away
 			if (this._touchEndPoint) {
 				// We detect clicks within a certain tolerance, otherwise let it
@@ -86,7 +89,7 @@ L.Draw.PolygonTouch = L.Draw.Polygon.extend({
 				this.addVertex(this._currentLatLng);
 			}
 		}
-		// No matter what remove the start and en point ready for the next touch.
+		// No matter what remove the start and end point ready for the next touch.
 		this._touchOriginPoint = null;
 		this._touchEndPoint = null;
 	}
