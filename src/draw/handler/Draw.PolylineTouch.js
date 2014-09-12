@@ -40,11 +40,19 @@ L.Draw.PolylineTouch = L.Draw.Polyline.extend({
 			markerCount = this._markers.length,
 			resolution = map.containerPointToLatLng([0, 0]).distanceTo(map.containerPointToLatLng([0, 1]));
 
-		// The last marker should have a click handler to close the polyline
-		if (markerCount > 1) {
+		// It's not a line if it's not two points
+		if (markerCount > 2) {
+			/* 	The last marker should have a click handler to close the Polygon.
+				When the user touches the screen I don't use the click event for the marker, this is because 
+				we would need a relatively large marker to click on.
+			 	Graphically this can look a bit crap. With this model we exffectively have a 
+			 	click area of 24 pixels from the center of the marker no matter graphical marker size.
+			 */
 			distance = this._markers[markerCount - 2].getLatLng().distanceTo(this._markers[markerCount - 1].getLatLng());
 			distancePixels = Math.floor(distance / resolution);
 			if (distancePixels < 12 * (window.devicePixelRatio || 1)) {
+				// Bit of a hack should refactor so updateFinishHandler is triggered before
+				// addVertex.
 				this.deleteLastVertex();
 				this._finishShape();
 			}
@@ -71,7 +79,7 @@ L.Draw.PolylineTouch = L.Draw.Polyline.extend({
 		// Make sure we have a starting point
 
 		if (this._touchOriginPoint) {
-			// If we have an en point we need to see how much it's moved before we decide if we save
+			// If we have an end point we need to see how much it's moved before we decide if we save
 			// If there is no _touchEndPoint we save straight away
 			if (this._touchEndPoint) {
 				// We detect clicks within a certain tolerance, otherwise let it
@@ -84,7 +92,7 @@ L.Draw.PolylineTouch = L.Draw.Polyline.extend({
 				this.addVertex(this._currentLatLng);
 			}
 		}
-		// No matter what remove the start and en point ready for the next touch.
+		// No matter what remove the start and end point ready for the next touch.
 		this._touchOriginPoint = null;
 		this._touchEndPoint = null;
 	}

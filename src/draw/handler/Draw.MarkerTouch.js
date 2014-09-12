@@ -1,7 +1,9 @@
 /*
-	Design choice. Mimic click event vs listen to touchstart touchend. 
-	Mimic 
-	One of the reasons the mouse version uses a marker.
+	Design choice: I didn't run with emulating a click event here as others have done, because it bugged out on me. 
+	Getting it to work when you have other features on the map was problematic, as they would steel the click event. 
+	The scenario with touch and mouse combination IE microsoft surface was a problem too.
+	I went with the touch events which are slightly more code but they were needed for polylineTouch and polygonTouch anyway. 
+	So when it's all refactored this will be quite tidy. 
 */
 L.Draw.MarkerTouch = L.Draw.Marker.extend({
 	initialize: function (map, options) {
@@ -57,8 +59,8 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 	_onTouchEnd: function (e) {
 		// Make sure we have a starting point
 		if (this._touchOriginPoint) {
-			// If we have an en point we need to see how much it's moved before we decide if we save
-			// If there is no _touchEndPoint we save straight away
+			// If we have an end point we need to see how much it's moved before we decide if we save
+			// If there is no _touchEndPoint we save straight away as this means no movement. I.e. definetly a click.
 			if (this._touchEndPoint) {
 				// We detect clicks within a certain tolerance, otherwise let it
 				// be interpreted as a drag by the map
@@ -70,7 +72,7 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 				this._fireTouchCreatedEvent();
 			}
 		}
-		// No matter what remove the start and en point ready for the next touch.
+		// No matter what remove the start and end point ready for the next touch.
 		this._touchOriginPoint = null;
 		this._currentLatLng = null;
 		this._touchEndPoint = null;

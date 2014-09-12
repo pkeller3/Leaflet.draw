@@ -42,14 +42,20 @@ L.Draw.PolygonTouch = L.Draw.Polygon.extend({
 			markerCount = this._markers.length,
 			resolution = map.containerPointToLatLng([0, 0]).distanceTo(map.containerPointToLatLng([0, 1]));
 
-		// It's not really a polygon if it's less than four points (If start and end points are the same). So we won't even try and close it until it is valid.
+		// It's not really a polygon if it's less than four points (If start and end points are the same).
+		// So we won't even try and close it until it is valid.
 		if (markerCount > 3) {
-			// The last marker should have a click handler to close the Polygon.
-			// When touch I don't use the click event for the marker, this is because we need would need a relatively large marker to click on.
-			// Graphically this can look a bit crap. With this model we exffectively have a click area of 24 pixels from the center of the marker no matter marker size.
+			/* 	If you click the first marker you close the Polygon.
+				When the user touches the screen I don 't use the click event for the marker, this is because 
+				we would need a relatively large marker to click on.
+			 	Graphically this can look a bit crap. With this model we exffectively have a 
+			 	click area of 24 pixels from the center of the marker no matter graphical marker size.
+			 */
 			distance = this._markers[0].getLatLng().distanceTo(this._markers[markerCount - 1].getLatLng());
 			distancePixels = Math.floor(distance / resolution);
 			if (distancePixels < 12 * (window.devicePixelRatio || 1)) {
+				// Bit of a hack should refactor so updateFinishHandler is triggered before
+				// addVertex.
 				this.deleteLastVertex();
 				this._finishShape();
 			}
