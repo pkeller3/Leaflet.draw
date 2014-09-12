@@ -1,0 +1,31 @@
+{
+  "name": "Leaflet.draw",
+  "version": "2.0.0",
+  "description": "Leaflet.draw touch support",
+  "main": "   -",
+  "directories": {
+    "example": "examples"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-contrib-clean": "^0.6.0",
+    "grunt-contrib-concat": "^0.5.0",
+    "grunt-contrib-jshint": "^0.10.0",
+    "grunt-contrib-uglify": "^0.5.1",
+    "jshint-stylish": "^0.4.0"
+  },
+  "scripts": {
+    "test": "-"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tablackmore/Leaflet.draw.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tablackmore/Leaflet.draw/issues"
+  },
+  "homepage": "https://github.com/tablackmore/Leaflet.draw"
+}
