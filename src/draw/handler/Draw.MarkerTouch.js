@@ -1,7 +1,7 @@
 /*
 	Design choice: I didn't run with emulating a click event here as others have done, because it bugged out on me. 
 	Getting it to work when you have other features on the map was problematic, as they would steel the click event. 
-	The scenario with touch and mouse combination IE microsoft surface was a problem too.
+	The scenario with touch and mouse combination i.e. microsoft surface was a problem too.
 	I went with the touch events which are slightly more code but they were needed for polylineTouch and polygonTouch anyway. 
 	So when it's all refactored this will be quite tidy. 
 */
@@ -59,9 +59,9 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 	_onTouchEnd: function (e) {
 		// Make sure we have a starting point
 		if (this._touchOriginPoint) {
-			// If we have an end point we need to see how much it's moved before we decide if we save
-			// If there is no _touchEndPoint we save straight away as this means no movement. I.e. definetly a click.
+
 			if (this._touchEndPoint) {
+				// If we have an end point we need to see how much it's moved before we decide if we save
 				// We detect clicks within a certain tolerance, otherwise let it
 				// be interpreted as a drag by the map
 				var distanceMoved = L.point(this._touchEndPoint).distanceTo(this._touchOriginPoint);
@@ -69,6 +69,7 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 					this._fireTouchCreatedEvent();
 				}
 			} else {
+				// If there is no _touchEndPoint we save straight away as this means no movement i.e. definetly a click.
 				this._fireTouchCreatedEvent();
 			}
 		}
