@@ -38,7 +38,7 @@ L.Draw.PolylineTouch = L.Draw.Polyline.extend({
 		L.Draw.Polyline.prototype._updateFinishHandler.call(this);
 		var distance, distancePixels,
 			markerCount = this._markers.length,
-			resolution = map.containerPointToLatLng([0, 0]).distanceTo(map.containerPointToLatLng([0, 1]));
+			resolution = this._map.containerPointToLatLng([0, 0]).distanceTo(this._map.containerPointToLatLng([0, 1]));
 
 		// It's not a line if it's not two points
 		if (markerCount > 2) {
@@ -75,7 +75,7 @@ L.Draw.PolylineTouch = L.Draw.Polyline.extend({
 		}
 	},
 
-	_onTouchEnd: function (e) {
+	_onTouchEnd: function () {
 		// Make sure we have a starting point
 
 		if (this._touchOriginPoint) {

@@ -37,10 +37,9 @@ L.Draw.PolygonTouch = L.Draw.Polygon.extend({
 
 	_updateFinishHandler: function () {
 		L.Draw.Polygon.prototype._updateFinishHandler.call(this);
-		var markerCount = this._markers.length;
 		var distance, distancePixels,
 			markerCount = this._markers.length,
-			resolution = map.containerPointToLatLng([0, 0]).distanceTo(map.containerPointToLatLng([0, 1]));
+			resolution = this._map.containerPointToLatLng([0, 0]).distanceTo(this._map.containerPointToLatLng([0, 1]));
 
 		// It's not really a polygon if it's less than four points (If start and end points are the same).
 		// So we won't even try and close it until it is valid.
@@ -78,7 +77,7 @@ L.Draw.PolygonTouch = L.Draw.Polygon.extend({
 		}
 	},
 
-	_onTouchEnd: function (e) {
+	_onTouchEnd: function () {
 		// Make sure we have a starting point
 
 		if (this._touchOriginPoint) {

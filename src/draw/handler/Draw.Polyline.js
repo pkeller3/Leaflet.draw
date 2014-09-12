@@ -129,8 +129,6 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 	},
 
 	addVertex: function (latlng) {
-		var markersLength = this._markers.length;
-
 		this._markers.push(this._createMarker(latlng));
 
 		this._poly.addLatLng(latlng);
@@ -177,11 +175,10 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 		L.DomEvent.preventDefault(e.originalEvent);
 	},
 
-	_vertexChanged: function (latlng, added) {
+	_vertexChanged: function () {
 		this._updateFinishHandler();
 
 		this._clearGuides();
-
 	},
 
 	_onMouseDown: function (e) {

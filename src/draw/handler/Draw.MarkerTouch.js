@@ -56,7 +56,7 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 			this._touchEndPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
 		}
 	},
-	_onTouchEnd: function (e) {
+	_onTouchEnd: function () {
 		// Make sure we have a starting point
 		if (this._touchOriginPoint) {
 
