@@ -43,7 +43,7 @@ L.Draw.PolygonTouch = L.Draw.Polygon.extend({
 
 		// It's not really a polygon if it's less than four points (If start and end points are the same).
 		// So we won't even try and close it until it is valid.
-		if (markerCount > 3) {
+		if (markerCount > 2) {
 			/* 	If you click the first marker you close the Polygon.
 				When the user touches the screen I don 't use the click event for the marker, this is because 
 				we would need a relatively large marker to click on.
