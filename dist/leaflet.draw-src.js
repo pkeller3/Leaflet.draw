@@ -1,3 +1,85 @@
+'use strict';
+/*
+ * L.LatLngUtil contains different utility functions for LatLngs.
+ */
+
+L.LatLngUtil = {
+	// Clones a LatLngs[], returns [][]
+	cloneLatLngs: function (latlngs) {
+		var clone = [];
+		for (var i = 0, l = latlngs.length; i < l; i++) {
+			clone.push(this.cloneLatLng(latlngs[i]));
+		}
+		return clone;
+	},
+
+	cloneLatLng: function (latlng) {
+		return L.latLng(latlng.lat, latlng.lng);
+	}
+};
+/*
+ * L.DrawTouch allows you to add touch capabilities to leaflet draw handlers.
+ */
+
+L.DrawTouch = L.Class.extend({
+	includes: L.Mixin.Events,
+	initialize: function (map) {
+		this._map = map;
+	},
+	enable: function () {
+		if (this._enabled) {
+			return;
+		}
+		if (this._map) {
+			L.DomEvent.addListener(this._map._container, 'touchstart', this._onTouchStart, this);
+		}
+		this._enabled = true;
+	},
+	disable: function () {
+		if (!this._enabled) {
+			return;
+		}
+		if (this._map) {
+			L.DomEvent.removeListener(this._map._container, 'touchstart', this._onTouchStart, this);
+		}
+		this._enabled = false;
+	},
+	_normaliseEvent: function (e) {
+		L.DomUtil.disableImageDrag();
+		L.DomUtil.disableTextSelection();
+
+		var first = e.touches ? e.touches[0] : e,
+			containerPoint = this._map.mouseEventToContainerPoint(first),
+			layerPoint = this._map.mouseEventToLayerPoint(first),
+			latlng = this._map.layerPointToLatLng(layerPoint);
+
+		return {
+			latlng: latlng,
+			layerPoint: layerPoint,
+			containerPoint: containerPoint,
+			clientX: first.clientX,
+			clientY: first.clientY,
+			originalEvent: e
+		};
+	},
+	_onTouchStart: function (e) {
+		// Make sure it's a one finger gesture and record the starting point
+		if (e.touches.length === 1) {
+			this.fire('down', this._normaliseEvent(e));
+			L.DomEvent.addListener(this._map._container, 'touchmove', this._onTouchMove, this);
+			L.DomEvent.addListener(this._map._container, 'touchend', this._onTouchEnd, this);
+		}
+	},
+	_onTouchMove: function (e) {
+		// Ensure we saved the starting point
+		this.fire('move', this._normaliseEvent(e));
+	},
+	_onTouchEnd: function () {
+		this.fire('up');
+		L.DomEvent.removeListener(this._map._container, 'touchmove', this._onTouchMove, this);
+		L.DomEvent.addListener(this._map._container, 'touchend', this._onTouchEnd, this);
+	}
+});
 L.Draw = {};
 
 L.Draw.Feature = L.Handler.extend({
@@ -85,7 +167,8 @@ L.Draw.Feature = L.Handler.extend({
 			this.disable();
 		}
 	}
-});;L.Draw.Marker = L.Draw.Feature.extend({
+});
+L.Draw.Marker = L.Draw.Feature.extend({
 	statics: {
 		TYPE: 'marker'
 	},
@@ -186,7 +269,8 @@ L.Draw.Feature = L.Handler.extend({
 		});
 		L.Draw.Feature.prototype._fireCreatedEvent.call(this, marker);
 	}
-});;/*
+});
+/*
 	Design choice: I didn't run with emulating a click event here as others have done, because it bugged out on me. 
 	Getting it to work when you have other features on the map was problematic, as they would steel the click event. 
 	The scenario with touch and mouse combination i.e. microsoft surface was a problem too.
@@ -199,49 +283,38 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 	},
 	addHooks: function () {
 		L.Draw.Marker.prototype.addHooks.call(this);
-		L.DomEvent.addListener(this._map._container, 'touchstart', this._onTouchStart, this);
-		L.DomEvent.addListener(this._map._container, 'touchmove', this._onTouchMove, this);
-		L.DomEvent.addListener(this._map._container, 'touchend', this._onTouchEnd, this);
+		if (!this._touchable) {
+			this._touchable = new L.DrawTouch(this._map);
+		}
+		if (this._map) {
+			console.dir(this._touchable);
+			this._touchable.on({
+				down: this._onTouchStart,
+				move: this._onTouchMove,
+				up: this._onTouchEnd
+			}, this).enable();
+		}
 	},
 	removeHooks: function () {
 		L.Draw.Marker.prototype.removeHooks.call(this);
 		if (this._map) {
-			L.DomEvent.removeListener(this._map._container, 'touchstart', this._onTouchStart, this);
-			L.DomEvent.removeListener(this._map._container, 'touchmove', this._onTouchMove, this);
-			L.DomEvent.addListener(this._map._container, 'touchend', this._onTouchEnd, this);
+			this._touchable.off({
+				down: this._onTouchStart,
+				move: this._onTouchMove,
+				up: this._onTouchEnd
+			}, this).disable();
 		}
-	},
-	_normaliseEvent: function (e) {
-		L.DomUtil.disableImageDrag();
-		L.DomUtil.disableTextSelection();
-
-		var first = e.touches ? e.touches[0] : e;
-		var containerPoint = this._map.mouseEventToContainerPoint(first),
-			layerPoint = this._map.mouseEventToLayerPoint(first),
-			latlng = this._map.layerPointToLatLng(layerPoint);
-
-		return {
-			latlng: latlng,
-			layerPoint: layerPoint,
-			containerPoint: containerPoint,
-			clientX: first.clientX,
-			clientY: first.clientY,
-			originalEvent: e
-		};
 	},
 	_onTouchStart: function (e) {
-		// Make sure it's a one fingure gesture and record the starting point
-		if (e.touches.length === 1) {
-			var normalisedEvent = this._normaliseEvent(e);
-			this._currentLatLng = normalisedEvent.latlng;
-			this._touchOriginPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
-		}
+		this._currentLatLng = e.latlng;
+		this._touchOriginPoint = L.point(e.clientX, e.clientY);
+		//Disable mouse move event
+		this._map.off('mousemove', this._onMouseMove, this);
 	},
 	_onTouchMove: function (e) {
 		// Ensure we saved the starting point
 		if (this._touchOriginPoint) {
-			var normalisedEvent = this._normaliseEvent(e);
-			this._touchEndPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
+			this._touchEndPoint = L.point(e.clientX, e.clientY);
 		}
 	},
 	_onTouchEnd: function () {
@@ -254,29 +327,30 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 				// be interpreted as a drag by the map
 				var distanceMoved = L.point(this._touchEndPoint).distanceTo(this._touchOriginPoint);
 				if (Math.abs(distanceMoved) < 9 * (window.devicePixelRatio || 1)) {
-					this._fireTouchCreatedEvent();
+					this._marker = new L.Marker(this._currentLatLng, {
+						icon: this.options.icon,
+						zIndexOffset: this.options.zIndexOffset
+					});
+					this._onClick();
 				}
 			} else {
 				// If there is no _touchEndPoint we save straight away as this means no movement i.e. definetly a click.
-				this._fireTouchCreatedEvent();
+				this._marker = new L.Marker(this._currentLatLng, {
+					icon: this.options.icon,
+					zIndexOffset: this.options.zIndexOffset
+				});
+				this._onClick();
 			}
 		}
+		//Enable mouse move event
+		this._map.on('mousemove', this._onMouseMove, this);
 		// No matter what remove the start and end point ready for the next touch.
 		this._touchOriginPoint = null;
 		this._currentLatLng = null;
 		this._touchEndPoint = null;
-	},
-	_fireTouchCreatedEvent: function () {
-		var marker = new L.Marker(this._currentLatLng, {
-			icon: this.options.icon
-		});
-		L.Draw.Feature.prototype._fireCreatedEvent.call(this, marker);
-		this.disable();
-		if (this.options.repeatMode) {
-			this.enable();
-		}
 	}
-});;L.Draw.Polyline = L.Draw.Feature.extend({
+});
+L.Draw.Polyline = L.Draw.Feature.extend({
 	statics: {
 		TYPE: 'polyline'
 	},
@@ -584,41 +658,35 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 		var poly = new this.Poly(this._poly.getLatLngs(), this.options.shapeOptions);
 		L.Draw.Feature.prototype._fireCreatedEvent.call(this, poly);
 	}
-});;L.Draw.PolylineTouch = L.Draw.Polyline.extend({
+});
+L.Draw.PolylineTouch = L.Draw.Polyline.extend({
 	initialize: function (map, options) {
 		L.Draw.Polyline.prototype.initialize.call(this, map, options);
 	},
 	addHooks: function () {
 		L.Draw.Polyline.prototype.addHooks.call(this);
-		L.DomEvent.addListener(this._map._container, 'touchstart', this._onTouchStart, this);
-		L.DomEvent.addListener(this._map._container, 'touchmove', this._onTouchMove, this);
-		L.DomEvent.addListener(this._map._container, 'touchend', this._onTouchEnd, this);
+		if (!this._touchable) {
+			this._touchable = new L.DrawTouch(this._map);
+		}
+		if (this._map) {
+			this._touchable.on({
+				down: this._onTouchStart,
+				move: this._onTouchMove,
+				up: this._onTouchEnd
+			}, this).enable();
+		}
 	},
 	removeHooks: function () {
 		L.Draw.Polyline.prototype.removeHooks.call(this);
 		if (this._map) {
-			L.DomEvent.removeListener(this._map._container, 'touchstart', this._onTouchStart, this);
-			L.DomEvent.removeListener(this._map._container, 'touchmove', this._onTouchMove, this);
-			L.DomEvent.addListener(this._map._container, 'touchend', this._onTouchEnd, this);
+			if (this._map) {
+				this._touchable.off({
+					down: this._onTouchStart,
+					move: this._onTouchMove,
+					up: this._onTouchEnd
+				}, this).disable();
+			}
 		}
-	},
-	_normaliseEvent: function (e) {
-		L.DomUtil.disableImageDrag();
-		L.DomUtil.disableTextSelection();
-
-		var first = e.touches ? e.touches[0] : e;
-		var containerPoint = this._map.mouseEventToContainerPoint(first),
-			layerPoint = this._map.mouseEventToLayerPoint(first),
-			latlng = this._map.layerPointToLatLng(layerPoint);
-
-		return {
-			latlng: latlng,
-			layerPoint: layerPoint,
-			containerPoint: containerPoint,
-			clientX: first.clientX,
-			clientY: first.clientY,
-			originalEvent: e
-		};
 	},
 	_updateFinishHandler: function () {
 		L.Draw.Polyline.prototype._updateFinishHandler.call(this);
@@ -646,18 +714,16 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 	},
 	_onTouchStart: function (e) {
 		// Make sure it's a one fingure gesture and record the starting point
-		if (e.touches.length === 1) {
-			var normalisedEvent = this._normaliseEvent(e);
-			this._currentLatLng = normalisedEvent.latlng;
-			this._touchOriginPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
-		}
+		this._currentLatLng = e.latlng;
+		this._touchOriginPoint = L.point(e.clientX, e.clientY);
+		//Disable mouse move event
+		this._map.off('mousemove', this._onMouseMove, this);
 	},
 
 	_onTouchMove: function (e) {
 		// Ensure we saved the starting point
 		if (this._touchOriginPoint) {
-			var normalisedEvent = this._normaliseEvent(e);
-			this._touchEndPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
+			this._touchEndPoint = L.point(e.clientX, e.clientY);
 		}
 	},
 
@@ -678,11 +744,16 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 				this.addVertex(this._currentLatLng);
 			}
 		}
+
+		//Enable mouse move event
+		this._map.on('mousemove', this._onMouseMove, this);
+
 		// No matter what remove the start and end point ready for the next touch.
 		this._touchOriginPoint = null;
 		this._touchEndPoint = null;
 	}
-});;L.Draw.Polygon = L.Draw.Polyline.extend({
+});
+L.Draw.Polygon = L.Draw.Polyline.extend({
 	statics: {
 		TYPE: 'polygon'
 	},
@@ -754,41 +825,35 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 			}
 		}
 	}
-});;L.Draw.PolygonTouch = L.Draw.Polygon.extend({
+});
+L.Draw.PolygonTouch = L.Draw.Polygon.extend({
 	initialize: function (map, options) {
 		L.Draw.Polygon.prototype.initialize.call(this, map, options);
 	},
 	addHooks: function () {
 		L.Draw.Polygon.prototype.addHooks.call(this);
-		L.DomEvent.addListener(this._map._container, 'touchstart', this._onTouchStart, this);
-		L.DomEvent.addListener(this._map._container, 'touchmove', this._onTouchMove, this);
-		L.DomEvent.addListener(this._map._container, 'touchend', this._onTouchEnd, this);
+		if (!this._touchable) {
+			this._touchable = new L.DrawTouch(this._map);
+		}
+		if (this._map) {
+			this._touchable.on({
+				down: this._onTouchStart,
+				move: this._onTouchMove,
+				up: this._onTouchEnd
+			}, this).enable();
+		}
 	},
 	removeHooks: function () {
 		L.Draw.Polygon.prototype.removeHooks.call(this);
 		if (this._map) {
-			L.DomEvent.removeListener(this._map._container, 'touchstart', this._onTouchStart, this);
-			L.DomEvent.removeListener(this._map._container, 'touchmove', this._onTouchMove, this);
-			L.DomEvent.addListener(this._map._container, 'touchend', this._onTouchEnd, this);
+			if (this._map) {
+				this._touchable.off({
+					down: this._onTouchStart,
+					move: this._onTouchMove,
+					up: this._onTouchEnd
+				}, this).disable();
+			}
 		}
-	},
-	_normaliseEvent: function (e) {
-		L.DomUtil.disableImageDrag();
-		L.DomUtil.disableTextSelection();
-
-		var first = e.touches ? e.touches[0] : e;
-		var containerPoint = this._map.mouseEventToContainerPoint(first),
-			layerPoint = this._map.mouseEventToLayerPoint(first),
-			latlng = this._map.layerPointToLatLng(layerPoint);
-
-		return {
-			latlng: latlng,
-			layerPoint: layerPoint,
-			containerPoint: containerPoint,
-			clientX: first.clientX,
-			clientY: first.clientY,
-			originalEvent: e
-		};
 	},
 
 	_updateFinishHandler: function () {
@@ -799,7 +864,7 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 
 		// It's not really a polygon if it's less than four points (If start and end points are the same).
 		// So we won't even try and close it until it is valid.
-		if (markerCount > 3) {
+		if (markerCount > 2) {
 			/* 	If you click the first marker you close the Polygon.
 				When the user touches the screen I don 't use the click event for the marker, this is because 
 				we would need a relatively large marker to click on.
@@ -817,30 +882,28 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 		}
 	},
 	_onTouchStart: function (e) {
-		// Make sure it's a one fingure gesture and record the starting point
-		if (e.touches.length === 1) {
-			var normalisedEvent = this._normaliseEvent(e);
-			this._currentLatLng = normalisedEvent.latlng;
-			this._touchOriginPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
-		}
+		this._currentLatLng = e.latlng;
+		this._touchOriginPoint = L.point(e.clientX, e.clientY);
+
+		// Disable mouse move event
+		this._map.off('mousemove', this._onMouseMove, this);
 	},
 
 	_onTouchMove: function (e) {
-		// Ensure we saved the starting point
+		// Make sure there is a starting point
 		if (this._touchOriginPoint) {
-			var normalisedEvent = this._normaliseEvent(e);
-			this._touchEndPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
+			this._touchEndPoint = L.point(e.clientX, e.clientY);
 		}
 	},
 
 	_onTouchEnd: function () {
-		// Make sure we have a starting point
+		// Make sure there is a starting point
 
 		if (this._touchOriginPoint) {
-			// If we have an end point we need to see how much it's moved before we decide if we save
+			// If there is an end point we need to see how much it's moved before we decide if we save
 			// If there is no _touchEndPoint we save straight away
 			if (this._touchEndPoint) {
-				// We detect clicks within a certain tolerance, otherwise let it
+				// Detect clicks within a certain tolerance, otherwise let it
 				// be interpreted as a drag by the map
 				var distanceMoved = L.point(this._touchEndPoint).distanceTo(this._touchOriginPoint);
 				if (Math.abs(distanceMoved) < 9 * (window.devicePixelRatio || 1)) {
@@ -850,8 +913,536 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 				this.addVertex(this._currentLatLng);
 			}
 		}
+
+		//Enable mouse move event
+		this._map.on('mousemove', this._onMouseMove, this);
+
 		// No matter what remove the start and end point ready for the next touch.
 		this._touchOriginPoint = null;
 		this._touchEndPoint = null;
 	}
+});
+L.EditToolbar = L.EditToolbar || {};
+L.EditToolbar.Edit = L.Handler.extend({
+	statics: {
+		TYPE: 'edit'
+	},
+
+	includes: L.Mixin.Events,
+
+	initialize: function (map, options) {
+		L.Handler.prototype.initialize.call(this, map);
+
+		// Set options to the default unless already set
+		this._selectedPathOptions = options.selectedPathOptions;
+
+		// Store the selectable layer group for ease of access
+		this._featureGroup = options.featureGroup;
+
+		if (!(this._featureGroup instanceof L.FeatureGroup)) {
+			throw new Error('options.featureGroup must be a L.FeatureGroup');
+		}
+
+		this._uneditedLayerProps = {};
+
+		// Save the type so super can fire, need to do this as cannot do this.TYPE :(
+		this.type = L.EditToolbar.Edit.TYPE;
+	},
+
+	enable: function () {
+		if (this._enabled || !this._hasAvailableLayers()) {
+			return;
+		}
+		this.fire('enabled', {
+			handler: this.type
+		});
+		//this disable other handlers
+
+		this._map.fire('draw:editstart', {
+			handler: this.type
+		});
+		//allow drawLayer to be updated before beginning edition.
+
+		L.Handler.prototype.enable.call(this);
+		this._featureGroup
+			.on('layeradd', this._enableLayerEdit, this)
+			.on('layerremove', this._disableLayerEdit, this);
+	},
+
+	disable: function () {
+		if (!this._enabled) {
+			return;
+		}
+		this._featureGroup
+			.off('layeradd', this._enableLayerEdit, this)
+			.off('layerremove', this._disableLayerEdit, this);
+		L.Handler.prototype.disable.call(this);
+		this._map.fire('draw:editstop', {
+			handler: this.type
+		});
+		this.fire('disabled', {
+			handler: this.type
+		});
+	},
+
+	addHooks: function () {
+		var map = this._map;
+
+		if (map) {
+			map.getContainer().focus();
+
+			this._featureGroup.eachLayer(this._enableLayerEdit, this);
+
+		}
+	},
+
+	removeHooks: function () {
+		if (this._map) {
+			// Clean up selected layers.
+			this._featureGroup.eachLayer(this._disableLayerEdit, this);
+
+			// Clear the backups of the original layers
+			this._uneditedLayerProps = {};
+
+		}
+	},
+
+	revertLayers: function () {
+		this._featureGroup.eachLayer(function (layer) {
+			this._revertLayer(layer);
+		}, this);
+	},
+
+	save: function () {
+		console.log('saving');
+		var editedLayers = new L.LayerGroup();
+		this._featureGroup.eachLayer(function (layer) {
+			if (layer.edited) {
+				editedLayers.addLayer(layer);
+				layer.edited = false;
+			}
+		});
+		this._map.fire('draw:edited', {
+			layers: editedLayers
+		});
+	},
+
+	_backupLayer: function (layer) {
+		var id = L.Util.stamp(layer);
+
+		if (!this._uneditedLayerProps[id]) {
+			// Polyline, Polygon or Rectangle
+			if (layer instanceof L.Polyline || layer instanceof L.Polygon || layer instanceof L.Rectangle) {
+				this._uneditedLayerProps[id] = {
+					latlngs: L.LatLngUtil.cloneLatLngs(layer.getLatLngs())
+				};
+			} else if (layer instanceof L.Circle) {
+				this._uneditedLayerProps[id] = {
+					latlng: L.LatLngUtil.cloneLatLng(layer.getLatLng()),
+					radius: layer.getRadius()
+				};
+			} else { // Marker
+				this._uneditedLayerProps[id] = {
+					latlng: L.LatLngUtil.cloneLatLng(layer.getLatLng())
+				};
+			}
+		}
+	},
+
+	_revertLayer: function (layer) {
+		var id = L.Util.stamp(layer);
+		layer.edited = false;
+		if (this._uneditedLayerProps.hasOwnProperty(id)) {
+			// Polyline, Polygon or Rectangle
+			if (layer instanceof L.Polyline || layer instanceof L.Polygon || layer instanceof L.Rectangle) {
+				layer.setLatLngs(this._uneditedLayerProps[id].latlngs);
+			} else if (layer instanceof L.Circle) {
+				layer.setLatLng(this._uneditedLayerProps[id].latlng);
+				layer.setRadius(this._uneditedLayerProps[id].radius);
+			} else { // Marker
+				layer.setLatLng(this._uneditedLayerProps[id].latlng);
+			}
+		}
+	},
+
+	_toggleMarkerHighlight: function (marker) {
+		if (!marker._icon) {
+			return;
+		}
+		// This is quite naughty, but I don't see another way of doing it. (short of setting a new icon)
+		var icon = marker._icon;
+
+		icon.style.display = 'none';
+
+		if (L.DomUtil.hasClass(icon, 'leaflet-edit-marker-selected')) {
+			L.DomUtil.removeClass(icon, 'leaflet-edit-marker-selected');
+			// Offset as the border will make the icon move.
+			this._offsetMarker(icon, -4);
+
+		} else {
+			L.DomUtil.addClass(icon, 'leaflet-edit-marker-selected');
+			// Offset as the border will make the icon move.
+			this._offsetMarker(icon, 4);
+		}
+
+		icon.style.display = '';
+	},
+
+	_offsetMarker: function (icon, offset) {
+		var iconMarginTop = parseInt(icon.style.marginTop, 10) - offset,
+			iconMarginLeft = parseInt(icon.style.marginLeft, 10) - offset;
+
+		icon.style.marginTop = iconMarginTop + 'px';
+		icon.style.marginLeft = iconMarginLeft + 'px';
+	},
+
+	_enableLayerEdit: function (e) {
+		var layer = e.layer || e.target || e,
+			isMarker = layer instanceof L.Marker,
+			pathOptions;
+
+		// Don't do anything if this layer is a marker but doesn't have an icon. Markers
+		// should usually have icons. If using Leaflet.draw with Leafler.markercluster there
+		// is a chance that a marker doesn't.
+		if (isMarker && !layer._icon) {
+			return;
+		}
+
+		// Back up this layer (if haven't before)
+		this._backupLayer(layer);
+
+		// Update layer style so appears editable
+		if (this._selectedPathOptions) {
+			pathOptions = L.Util.extend({}, this._selectedPathOptions);
+
+			if (isMarker) {
+				this._toggleMarkerHighlight(layer);
+			} else {
+				layer.options.previousOptions = L.Util.extend({
+					dashArray: null
+				}, layer.options);
+
+				// Make sure that Polylines are not filled
+				if (!(layer instanceof L.Circle) && !(layer instanceof L.Polygon) && !(layer instanceof L.Rectangle)) {
+					pathOptions.fill = false;
+				}
+
+				layer.setStyle(pathOptions);
+			}
+		}
+
+		if (isMarker) {
+			layer.dragging.enable();
+			layer.on('dragend', this._onMarkerDragEnd);
+		} else {
+			console.dir(layer);
+			layer.editing.enable();
+		}
+	},
+
+	_disableLayerEdit: function (e) {
+		var layer = e.layer || e.target || e;
+		layer.edited = false;
+
+		// Reset layer styles to that of before select
+		if (this._selectedPathOptions) {
+			if (layer instanceof L.Marker) {
+				this._toggleMarkerHighlight(layer);
+			} else {
+				// reset the layer style to what is was before being selected
+				layer.setStyle(layer.options.previousOptions);
+				// remove the cached options for the layer object
+				delete layer.options.previousOptions;
+			}
+		}
+
+		if (layer instanceof L.Marker) {
+			layer.dragging.disable();
+			layer.off('dragend', this._onMarkerDragEnd, this);
+		} else {
+			layer.editing.disable();
+		}
+	},
+
+	_onMarkerDragEnd: function (e) {
+		var layer = e.target;
+		layer.edited = true;
+	},
+
+
+	_hasAvailableLayers: function () {
+		return this._featureGroup.getLayers().length !== 0;
+	}
+});
+L.Edit = L.Edit || {};
+
+/*
+ * L.Edit.Poly is an editing handler for polylines and polygons.
+ */
+
+L.Edit.Poly = L.Handler.extend({
+	options: {
+		icon: new L.DivIcon({
+			iconSize: new L.Point(8, 8),
+			className: 'leaflet-div-icon leaflet-editing-icon'
+		})
+	},
+
+	initialize: function (poly, options) {
+		this._poly = poly;
+		L.setOptions(this, options);
+	},
+
+	addHooks: function () {
+		if (this._poly._map) {
+			if (!this._markerGroup) {
+				this._initMarkers();
+			}
+			this._poly._map.addLayer(this._markerGroup);
+		}
+	},
+
+	removeHooks: function () {
+		if (this._poly._map) {
+			this._poly._map.removeLayer(this._markerGroup);
+			delete this._markerGroup;
+			delete this._markers;
+		}
+	},
+
+	updateMarkers: function () {
+		this._markerGroup.clearLayers();
+		this._initMarkers();
+	},
+
+	_initMarkers: function () {
+		if (!this._markerGroup) {
+			this._markerGroup = new L.LayerGroup();
+		}
+		this._markers = [];
+
+		var latlngs = this._poly._latlngs,
+			i, j, len, marker;
+
+		// TODO refactor holes implementation in Polygon to support it here
+
+		for (i = 0, len = latlngs.length; i < len; i++) {
+
+			marker = this._createMarker(latlngs[i], i);
+			marker.on('click', this._onMarkerClick, this);
+			this._markers.push(marker);
+		}
+
+		var markerLeft, markerRight;
+
+		for (i = 0, j = len - 1; i < len; j = i++) {
+			if (i === 0 && !(L.Polygon && (this._poly instanceof L.Polygon))) {
+				continue;
+			}
+
+			markerLeft = this._markers[j];
+			markerRight = this._markers[i];
+
+			this._createMiddleMarker(markerLeft, markerRight);
+			this._updatePrevNext(markerLeft, markerRight);
+		}
+	},
+
+	_createMarker: function (latlng, index) {
+		var marker = new L.Marker(latlng, {
+			draggable: true,
+			icon: this.options.icon
+		});
+
+		marker._origLatLng = latlng;
+		marker._index = index;
+
+		marker.on('drag', this._onMarkerDrag, this);
+		marker.on('dragend', this._fireEdit, this);
+
+		this._markerGroup.addLayer(marker);
+
+		return marker;
+	},
+
+	_removeMarker: function (marker) {
+		var i = marker._index;
+
+		this._markerGroup.removeLayer(marker);
+		this._markers.splice(i, 1);
+		this._poly.spliceLatLngs(i, 1);
+		this._updateIndexes(i, -1);
+
+		marker
+			.off('drag', this._onMarkerDrag, this)
+			.off('dragend', this._fireEdit, this)
+			.off('click', this._onMarkerClick, this);
+	},
+
+	_fireEdit: function () {
+		this._poly.edited = true;
+		this._poly.fire('edit');
+	},
+
+	_onMarkerDrag: function (e) {
+		var marker = e.target;
+
+		L.extend(marker._origLatLng, marker._latlng);
+
+		if (marker._middleLeft) {
+			marker._middleLeft.setLatLng(this._getMiddleLatLng(marker._prev, marker));
+		}
+		if (marker._middleRight) {
+			marker._middleRight.setLatLng(this._getMiddleLatLng(marker, marker._next));
+		}
+
+		this._poly.redraw();
+	},
+
+	_onMarkerClick: function (e) {
+		var minPoints = L.Polygon && (this._poly instanceof L.Polygon) ? 4 : 3,
+			marker = e.target;
+
+		// If removing this point would create an invalid polyline/polygon don't remove
+		if (this._poly._latlngs.length < minPoints) {
+			return;
+		}
+
+		// remove the marker
+		this._removeMarker(marker);
+
+		// update prev/next links of adjacent markers
+		this._updatePrevNext(marker._prev, marker._next);
+
+		// remove ghost markers near the removed marker
+		if (marker._middleLeft) {
+			this._markerGroup.removeLayer(marker._middleLeft);
+		}
+		if (marker._middleRight) {
+			this._markerGroup.removeLayer(marker._middleRight);
+		}
+
+		// create a ghost marker in place of the removed one
+		if (marker._prev && marker._next) {
+			this._createMiddleMarker(marker._prev, marker._next);
+
+		} else if (!marker._prev) {
+			marker._next._middleLeft = null;
+
+		} else if (!marker._next) {
+			marker._prev._middleRight = null;
+		}
+
+		this._fireEdit();
+	},
+
+	_updateIndexes: function (index, delta) {
+		this._markerGroup.eachLayer(function (marker) {
+			if (marker._index > index) {
+				marker._index += delta;
+			}
+		});
+	},
+
+	_createMiddleMarker: function (marker1, marker2) {
+		var latlng = this._getMiddleLatLng(marker1, marker2),
+			marker = this._createMarker(latlng),
+			onClick,
+			onDragStart,
+			onDragEnd;
+
+		marker.setOpacity(0.6);
+
+		marker1._middleRight = marker2._middleLeft = marker;
+
+		onDragStart = function () {
+			var i = marker2._index;
+
+			marker._index = i;
+
+			marker
+				.off('click', onClick, this)
+				.on('click', this._onMarkerClick, this);
+
+			latlng.lat = marker.getLatLng().lat;
+			latlng.lng = marker.getLatLng().lng;
+			this._poly.spliceLatLngs(i, 0, latlng);
+			this._markers.splice(i, 0, marker);
+
+			marker.setOpacity(1);
+
+			this._updateIndexes(i, 1);
+			marker2._index++;
+			this._updatePrevNext(marker1, marker);
+			this._updatePrevNext(marker, marker2);
+
+			this._poly.fire('editstart');
+		};
+
+		onDragEnd = function () {
+			marker.off('dragstart', onDragStart, this);
+			marker.off('dragend', onDragEnd, this);
+
+			this._createMiddleMarker(marker1, marker);
+			this._createMiddleMarker(marker, marker2);
+		};
+
+		onClick = function () {
+			onDragStart.call(this);
+			onDragEnd.call(this);
+			this._fireEdit();
+		};
+
+		marker
+			.on('click', onClick, this)
+			.on('dragstart', onDragStart, this)
+			.on('dragend', onDragEnd, this);
+
+		this._markerGroup.addLayer(marker);
+	},
+
+	_updatePrevNext: function (marker1, marker2) {
+		if (marker1) {
+			marker1._next = marker2;
+		}
+		if (marker2) {
+			marker2._prev = marker1;
+		}
+	},
+
+	_getMiddleLatLng: function (marker1, marker2) {
+		var map = this._poly._map,
+			p1 = map.project(marker1.getLatLng()),
+			p2 = map.project(marker2.getLatLng());
+
+		return map.unproject(p1._add(p2)._divideBy(2));
+	}
+});
+
+L.Polyline.addInitHook(function () {
+
+	// Check to see if handler has already been initialized. This is to support versions of Leaflet that still have L.Handler.PolyEdit
+	if (this.editing) {
+		return;
+	}
+
+	if (L.Edit.Poly) {
+		this.editing = new L.Edit.Poly(this);
+
+		if (this.options.editable) {
+			this.editing.enable();
+		}
+	}
+
+	this.on('add', function () {
+		if (this.editing && this.editing.enabled()) {
+			this.editing.addHooks();
+		}
+	});
+
+	this.on('remove', function () {
+		if (this.editing && this.editing.enabled()) {
+			this.editing.removeHooks();
+		}
+	});
 });

@@ -6,6 +6,8 @@
 	<link rel="stylesheet" href="libs/leaflet.css" />
 
 	<script src="libs/leaflet-src.js"></script>
+	<script src="../src/ext/LatLngUtils.js"></script>
+	<script src="../src/edit/handler/EditToolbar.Edit.js"></script>
 	<script src="../src/dom/Draw.Touch.js"></script>
 	<script src="../src/draw/handler/Draw.Feature.js"></script>
 	<script src="../src/draw/handler/Draw.Marker.js"></script>
@@ -13,6 +15,7 @@
 
 </head>
 <body>
+	<button id="save-button">save</button>
 	<div id="map" style="width: 800px; height: 600px; border: 1px solid #ccc"></div>
 	<div id="result"></div>
 
@@ -22,21 +25,37 @@
 			osm = L.tileLayer(osmUrl, {maxZoom: 18, attribution: osmAttrib});
 			map = new L.Map('map', {layers: [osm], center: new L.LatLng(51.505, -0.04), zoom: 13});
 
-		L.polygon([
-			[51.509, -0.08],
-			[51.503, -0.06],
-			[51.51, -0.047]
-		]).addTo(map).bindPopup("I am a polygon.");
 
 		var newMarker = new L.Draw.MarkerTouch(map);
+		var geometryEditor;
 		newMarker.enable();
 
 		map.on('draw:created', function (e) {
   			var type = e.layerType,
   			layer = e.layer,
   			shape = layer.toGeoJSON();
-  			document.getElementById('result').innerText  = JSON.stringify(shape);
+  			var selectedLayer = L.geoJson(shape).addTo(map);
+  			document.getElementById('result').innerText  = 'Added ' + JSON.stringify(shape);
+  			geometryEditor = new L.EditToolbar.Edit(map, {
+								featureGroup: selectedLayer
+							});
+  			geometryEditor.enable();
+
+  			map.on('draw:edited', function (e) {
+  				console.log(e);
+				var layers = e.layers;
+				layers.eachLayer(function (layer) {
+					shape = layer.toGeoJSON();
+					document.getElementById('result').innerText  = 'Edited ' + JSON.stringify(shape);
+				});
+			});
+  			
 		});
+		document.getElementById('save-button').onclick = function(){
+			console.log('click');
+			geometryEditor.save();
+		};
+
 		
 	</script>
 </body>

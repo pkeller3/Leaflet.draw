@@ -41,11 +41,11 @@ module.exports = function (grunt) {
 
 		// Join the files together
 		concat: {
-			options: {
-				separator: ';',
-			},
+			options: {},
 			dist: {
 				src: [
+					'<%= leafletDraw.src %>/ext/LatLngUtils.js',
+					'<%= leafletDraw.src %>/dom/Draw.Touch.js',
 					'<%= leafletDraw.src %>/draw/handler/Draw.Feature.js',
 					'<%= leafletDraw.src %>/draw/handler/Draw.Marker.js',
 					'<%= leafletDraw.src %>/draw/handler/Draw.MarkerTouch.js',
@@ -53,7 +53,8 @@ module.exports = function (grunt) {
 					'<%= leafletDraw.src %>/draw/handler/Draw.PolylineTouch.js',
 					'<%= leafletDraw.src %>/draw/handler/Draw.Polygon.js',
 					'<%= leafletDraw.src %>/draw/handler/Draw.PolygonTouch.js',
-					'<%= leafletDraw.src %>/draw/handler/Edit.Poly.js'
+					'<%= leafletDraw.src %>/edit/handler/EditToolbar.Edit.js',
+					'<%= leafletDraw.src %>/edit/handler/Edit.Poly.js'
 				],
 				dest: '<%= leafletDraw.dist %>/leaflet.draw-src.js',
 			},
@@ -62,7 +63,7 @@ module.exports = function (grunt) {
 		uglify: {
 			dist: {
 				files: {
-					'<%= leafletDraw.dist %>/draw.min.js': ['<%= leafletDraw.dist %>/leaflet.draw-src.js']
+					'<%= leafletDraw.dist %>/leaflet.draw.min.js': ['<%= leafletDraw.dist %>/leaflet.draw-src.js']
 				}
 			}
 		}

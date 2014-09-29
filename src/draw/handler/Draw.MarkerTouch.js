@@ -11,49 +11,38 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 	},
 	addHooks: function () {
 		L.Draw.Marker.prototype.addHooks.call(this);
-		L.DomEvent.addListener(this._map._container, 'touchstart', this._onTouchStart, this);
-		L.DomEvent.addListener(this._map._container, 'touchmove', this._onTouchMove, this);
-		L.DomEvent.addListener(this._map._container, 'touchend', this._onTouchEnd, this);
+		if (!this._touchable) {
+			this._touchable = new L.DrawTouch(this._map);
+		}
+		if (this._map) {
+			console.dir(this._touchable);
+			this._touchable.on({
+				down: this._onTouchStart,
+				move: this._onTouchMove,
+				up: this._onTouchEnd
+			}, this).enable();
+		}
 	},
 	removeHooks: function () {
 		L.Draw.Marker.prototype.removeHooks.call(this);
 		if (this._map) {
-			L.DomEvent.removeListener(this._map._container, 'touchstart', this._onTouchStart, this);
-			L.DomEvent.removeListener(this._map._container, 'touchmove', this._onTouchMove, this);
-			L.DomEvent.addListener(this._map._container, 'touchend', this._onTouchEnd, this);
+			this._touchable.off({
+				down: this._onTouchStart,
+				move: this._onTouchMove,
+				up: this._onTouchEnd
+			}, this).disable();
 		}
-	},
-	_normaliseEvent: function (e) {
-		L.DomUtil.disableImageDrag();
-		L.DomUtil.disableTextSelection();
-
-		var first = e.touches ? e.touches[0] : e;
-		var containerPoint = this._map.mouseEventToContainerPoint(first),
-			layerPoint = this._map.mouseEventToLayerPoint(first),
-			latlng = this._map.layerPointToLatLng(layerPoint);
-
-		return {
-			latlng: latlng,
-			layerPoint: layerPoint,
-			containerPoint: containerPoint,
-			clientX: first.clientX,
-			clientY: first.clientY,
-			originalEvent: e
-		};
 	},
 	_onTouchStart: function (e) {
-		// Make sure it's a one fingure gesture and record the starting point
-		if (e.touches.length === 1) {
-			var normalisedEvent = this._normaliseEvent(e);
-			this._currentLatLng = normalisedEvent.latlng;
-			this._touchOriginPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
-		}
+		this._currentLatLng = e.latlng;
+		this._touchOriginPoint = L.point(e.clientX, e.clientY);
+		//Disable mouse move event
+		this._map.off('mousemove', this._onMouseMove, this);
 	},
 	_onTouchMove: function (e) {
 		// Ensure we saved the starting point
 		if (this._touchOriginPoint) {
-			var normalisedEvent = this._normaliseEvent(e);
-			this._touchEndPoint = L.point(normalisedEvent.clientX, normalisedEvent.clientY);
+			this._touchEndPoint = L.point(e.clientX, e.clientY);
 		}
 	},
 	_onTouchEnd: function () {
@@ -66,26 +55,26 @@ L.Draw.MarkerTouch = L.Draw.Marker.extend({
 				// be interpreted as a drag by the map
 				var distanceMoved = L.point(this._touchEndPoint).distanceTo(this._touchOriginPoint);
 				if (Math.abs(distanceMoved) < 9 * (window.devicePixelRatio || 1)) {
-					this._fireTouchCreatedEvent();
+					this._marker = new L.Marker(this._currentLatLng, {
+						icon: this.options.icon,
+						zIndexOffset: this.options.zIndexOffset
+					});
+					this._onClick();
 				}
 			} else {
 				// If there is no _touchEndPoint we save straight away as this means no movement i.e. definetly a click.
-				this._fireTouchCreatedEvent();
+				this._marker = new L.Marker(this._currentLatLng, {
+					icon: this.options.icon,
+					zIndexOffset: this.options.zIndexOffset
+				});
+				this._onClick();
 			}
 		}
+		//Enable mouse move event
+		this._map.on('mousemove', this._onMouseMove, this);
 		// No matter what remove the start and end point ready for the next touch.
 		this._touchOriginPoint = null;
 		this._currentLatLng = null;
 		this._touchEndPoint = null;
-	},
-	_fireTouchCreatedEvent: function () {
-		var marker = new L.Marker(this._currentLatLng, {
-			icon: this.options.icon
-		});
-		L.Draw.Feature.prototype._fireCreatedEvent.call(this, marker);
-		this.disable();
-		if (this.options.repeatMode) {
-			this.enable();
-		}
 	}
 });
