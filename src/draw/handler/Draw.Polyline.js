@@ -156,6 +156,10 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 	},
 
 	_finishShape: function () {
+        // Added check to prevent errors after first time this function is called
+	    if (!this._poly)
+	        return;
+
 		var intersects = this._poly.newLatLngIntersects(this._poly.getLatLngs()[0], true);
 
 		if ((!this.options.allowIntersection && intersects) || !this._shapeIsValid()) {
