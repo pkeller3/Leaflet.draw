@@ -14,6 +14,7 @@ var deps = {
 			'draw/handler/Draw.SimpleShape.js',
 			'draw/handler/Draw.Rectangle.js',
 			'draw/handler/Draw.Circle.js',
+            'draw/handler/Draw.CircleMarker.js',
 			'draw/handler/Draw.Marker.js'
 		],
 		desc: 'Drawing handlers for: polylines, polygons, rectangles, circles and markers.',
@@ -26,7 +27,8 @@ var deps = {
 			'edit/handler/Edit.Poly.js',
 			'edit/handler/Edit.SimpleShape.js',
 			'edit/handler/Edit.Rectangle.js',
-			'edit/handler/Edit.Circle.js'
+			'edit/handler/Edit.Circle.js',
+            'edit/handler/Edit.CircleMarker.js'
 		],
 		desc: 'Editing handlers for: polylines, polygons, rectangles, and circles.',
 		deps: ['Core']
