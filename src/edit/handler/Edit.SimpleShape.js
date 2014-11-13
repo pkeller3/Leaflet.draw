@@ -40,7 +40,7 @@ L.Edit.SimpleShape = L.Handler.extend({
 		if (shape._map) {
 		    this._unbindMarker(this._moveMarker);
             // Make sure moveMarker is removed for circleMarkers
-			if (this._moveMarker && shape._map)
+			if (this._moveMarker && this._map)
 			    this._map.removeLayer(this._moveMarker);
 
             // Was running into an error when deleting a drawn object
