@@ -209,7 +209,7 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 		this._updateTooltip();
 
         // Fire an event out so that I can update some button states
-		this._map.fire('draw:vertexChange', { layerType: this.type, markers: this._markers });
+		this._map.fire('draw:vertexChange', { layerType: this.type, markers: this._markers, path: this });
 	},
 
 	_onMouseDown: function (e) {
