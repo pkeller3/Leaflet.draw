@@ -37,6 +37,11 @@ L.drawLocal = {
 					start: 'Click and drag to draw circle.'
 				}
 			},
+			circleMarker: {
+			    tooltip: {
+			        start: 'Click to draw circle.',
+			    }
+			},
 			marker: {
 				tooltip: {
 					start: 'Click map to place marker.'
@@ -206,7 +211,7 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 		maxGuideLineLength: 4000,
 		shapeOptions: {
 			stroke: true,
-			color: '#f06eaa',
+			color: '#0033ff',
 			weight: 4,
 			opacity: 0.5,
 			fill: false,
@@ -342,6 +347,10 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 	},
 
 	_finishShape: function () {
+        // Added check to prevent errors when trying to call this function multiple times
+	    if (!this._poly)
+	        return;
+
 		var intersects = this._poly.newLatLngIntersects(this._poly.getLatLngs()[0], true);
 
 		if ((!this.options.allowIntersection && intersects) || !this._shapeIsValid()) {
@@ -393,6 +402,9 @@ L.Draw.Polyline = L.Draw.Feature.extend({
 		this._clearGuides();
 
 		this._updateTooltip();
+
+        // Fire an event out so that I can update some button states
+		this._map.fire('draw:vertexChange', { layerType: this.type, markers: this._markers, path: this });
 	},
 
 	_onMouseDown: function (e) {
@@ -630,7 +642,7 @@ L.Draw.Polygon = L.Draw.Polyline.extend({
 		showArea: false,
 		shapeOptions: {
 			stroke: true,
-			color: '#f06eaa',
+			color: '#0033ff',
 			weight: 4,
 			opacity: 0.5,
 			fill: true,
@@ -827,7 +839,7 @@ L.Draw.Rectangle = L.Draw.SimpleShape.extend({
 	options: {
 		shapeOptions: {
 			stroke: true,
-			color: '#f06eaa',
+			color: '#0033ff',
 			weight: 4,
 			opacity: 0.5,
 			fill: true,
@@ -888,7 +900,7 @@ L.Draw.Circle = L.Draw.SimpleShape.extend({
 	options: {
 		shapeOptions: {
 			stroke: true,
-			color: '#f06eaa',
+			color: '#0033ff',
 			weight: 4,
 			opacity: 0.5,
 			fill: true,
@@ -944,6 +956,114 @@ L.Draw.Circle = L.Draw.SimpleShape.extend({
 	}
 });
 
+
+L.Draw.CircleMarker = L.Draw.SimpleShape.extend({
+    statics: {
+        TYPE: 'circleMarker'
+    },
+
+    options: {
+        shapeOptions: {
+            stroke: true,
+            color: '#0033ff',
+            weight: 4,
+            opacity: 0.5,
+            fill: true,
+            fillColor: null, //same as color by default
+            fillOpacity: 0.2,
+            clickable: true
+        },
+        radius: 10,
+        showRadius: true,
+        metric: true // Whether to use the metric meaurement system or imperial
+    },
+
+    initialize: function (map, options) {
+        // Save the type so super can fire, need to do this as cannot do this.TYPE :(
+        this.type = L.Draw.CircleMarker.TYPE;
+
+        this._initialLabelText = L.drawLocal.draw.handlers.circleMarker.tooltip.start;
+
+        L.Draw.SimpleShape.prototype.initialize.call(this, map, options);
+    },
+
+    addHooks: function () {
+        L.Draw.Feature.prototype.addHooks.call(this);
+
+        if (this._map) {
+            this._tooltip.updateContent({ text: L.drawLocal.draw.handlers.marker.tooltip.start });
+
+            // Same mouseMarker as in Draw.Polyline
+            if (!this._mouseMarker) {
+                this._mouseMarker = L.marker(this._map.getCenter(), {
+                    icon: L.divIcon({
+                        className: 'leaflet-mouse-marker',
+                        iconAnchor: [20, 20],
+                        iconSize: [40, 40]
+                    }),
+                    opacity: 0,
+                    zIndexOffset: this.options.zIndexOffset
+                });
+            }
+
+            this._mouseMarker
+				.on('click', this._onClick, this)
+				.addTo(this._map);
+
+            this._map.on('mousemove', this._onMouseMove, this);
+        }
+    },
+
+    removeHooks: function () {
+        L.Draw.Feature.prototype.removeHooks.call(this);
+
+        if (this._map) {
+            if (this._circleMarker) {
+                this._circleMarker.off('click', this._onClick, this);
+                this._map
+					.off('click', this._onClick, this)
+					.removeLayer(this._circleMarker);
+                delete this._circleMarker;
+            }
+
+            this._mouseMarker.off('click', this._onClick, this);
+            this._map.removeLayer(this._mouseMarker);
+            delete this._mouseMarker;
+
+            this._map.off('mousemove', this._onMouseMove, this);
+        }
+    },
+
+    _onMouseMove: function (e) {
+        var latlng = e.latlng;
+
+        this._tooltip.updatePosition(latlng);
+        this._mouseMarker.setLatLng(latlng);
+
+        if (!this._circleMarker) {
+            this._circleMarker = new L.CircleMarker(latlng, this.options.shapeOptions);
+            // Bind to both marker and map to make sure we get the click event.
+            this._circleMarker.on('click', this._onClick, this);
+            this._map
+				.on('click', this._onClick, this)
+				.addLayer(this._circleMarker);
+        }
+        else {
+            latlng = this._mouseMarker.getLatLng();
+            this._circleMarker.setLatLng(latlng);
+        }
+    },
+
+    _onClick: function () {
+        this._fireCreatedEvent();
+        this.disable();
+    },
+
+    _fireCreatedEvent: function () {
+        var circleMarker = new L.CircleMarker(this._circleMarker.getLatLng(), this.options.shapeOptions);
+        L.Draw.Feature.prototype._fireCreatedEvent.call(this, circleMarker);
+    }
+});
 
 L.Draw.Marker = L.Draw.Feature.extend({
 	statics: {
@@ -1051,6 +1171,83 @@ L.Draw.Marker = L.Draw.Feature.extend({
 
 L.Edit = L.Edit || {};
 
+L.Edit.Marker = L.Handler.extend({
+	initialize: function (marker, options) {
+		this._marker = marker;
+		L.setOptions(this, options);
+	},
+
+	addHooks: function () {
+		var marker = this._marker;
+
+		marker.dragging.enable();
+		marker.on('dragend', this._onDragEnd, marker);
+		this._toggleMarkerHighlight();
+	},
+
+	removeHooks: function () {
+		var marker = this._marker;
+
+		marker.dragging.disable();
+		marker.off('dragend', this._onDragEnd, marker);
+		this._toggleMarkerHighlight();
+	},
+
+	_onDragEnd: function (e) {
+		var layer = e.target;
+		layer.edited = true;
+	},
+
+	_toggleMarkerHighlight: function () {
+
+		// Don't do anything if this layer is a marker but doesn't have an icon. Markers
+		// should usually have icons. If using Leaflet.draw with Leafler.markercluster there
+		// is a chance that a marker doesn't.
+		if (!this._icon) {
+			return;
+		}
+		
+		// This is quite naughty, but I don't see another way of doing it. (short of setting a new icon)
+		var icon = this._icon;
+
+		icon.style.display = 'none';
+
+		if (L.DomUtil.hasClass(icon, 'leaflet-edit-marker-selected')) {
+			L.DomUtil.removeClass(icon, 'leaflet-edit-marker-selected');
+			// Offset as the border will make the icon move.
+			this._offsetMarker(icon, -4);
+
+		} else {
+			L.DomUtil.addClass(icon, 'leaflet-edit-marker-selected');
+			// Offset as the border will make the icon move.
+			this._offsetMarker(icon, 4);
+		}
+
+		icon.style.display = '';
+	},
+
+	_offsetMarker: function (icon, offset) {
+		var iconMarginTop = parseInt(icon.style.marginTop, 10) - offset,
+			iconMarginLeft = parseInt(icon.style.marginLeft, 10) - offset;
+
+		icon.style.marginTop = iconMarginTop + 'px';
+		icon.style.marginLeft = iconMarginLeft + 'px';
+	}
+});
+
+L.Marker.addInitHook(function () {
+	if (L.Edit.Marker) {
+		this.editing = new L.Edit.Marker(this);
+
+		if (this.options.editable) {
+			this.editing.enable();
+		}
+	}
+});
+
+
+L.Edit = L.Edit || {};
+
 /*
  * L.Edit.Poly is an editing handler for polylines and polygons.
  */
@@ -1069,6 +1266,14 @@ L.Edit.Poly = L.Handler.extend({
 	},
 
 	addHooks: function () {
+		var poly = this._poly;
+
+		if (!(poly instanceof L.Polygon)) {
+			poly.options.editing.fill = false;
+		}
+
+		poly.setStyle(poly.options.editing);
+
 		if (this._poly._map) {
 			if (!this._markerGroup) {
 				this._initMarkers();
@@ -1078,8 +1283,12 @@ L.Edit.Poly = L.Handler.extend({
 	},
 
 	removeHooks: function () {
-		if (this._poly._map) {
-			this._poly._map.removeLayer(this._markerGroup);
+		var poly = this._poly;
+
+		poly.setStyle(poly.options.original);
+
+		if (poly._map) {
+			poly._map.removeLayer(this._markerGroup);
 			delete this._markerGroup;
 			delete this._markers;
 		}
@@ -1343,8 +1552,12 @@ L.Edit.SimpleShape = L.Handler.extend({
 	},
 
 	addHooks: function () {
-		if (this._shape._map) {
-			this._map = this._shape._map;
+		var shape = this._shape;
+
+		shape.setStyle(shape.options.editing);
+
+		if (shape._map) {
+			this._map = shape._map;
 
 			if (!this._markerGroup) {
 				this._initMarkers();
@@ -1354,15 +1567,27 @@ L.Edit.SimpleShape = L.Handler.extend({
 	},
 
 	removeHooks: function () {
-		if (this._shape._map) {
-			this._unbindMarker(this._moveMarker);
+		var shape = this._shape;
 
-			for (var i = 0, l = this._resizeMarkers.length; i < l; i++) {
-				this._unbindMarker(this._resizeMarkers[i]);
+		shape.setStyle(shape.options.original);
+
+		if (shape._map) {
+		    this._unbindMarker(this._moveMarker);
+            // Make sure moveMarker is removed for circleMarkers
+			if (this._moveMarker && this._map)
+			    this._map.removeLayer(this._moveMarker);
+
+            // Was running into an error when deleting a drawn object
+			if (this._resizeMarkers) {
+			    for (var i = 0, l = this._resizeMarkers.length; i < l; i++) {
+			        this._unbindMarker(this._resizeMarkers[i]);
+			    }
+			    this._resizeMarkers = null;
 			}
-			this._resizeMarkers = null;
 
-			this._map.removeLayer(this._markerGroup);
+            // Null check markerGroup
+			if (this.markerGroup)
+			    this._map.removeLayer(this._markerGroup);
 			delete this._markerGroup;
 		}
 
@@ -1645,6 +1870,46 @@ L.Circle.addInitHook(function () {
 			this.editing.removeHooks();
 		}
 	});
+});
+
+L.Edit = L.Edit || {};
+
+L.Edit.CircleMarker = L.Edit.Circle.extend({
+    _initMarkers: function () {
+        if (!this._markerGroup) {
+            this._markerGroup = new L.LayerGroup();
+        }
+
+        // Create center marker
+        this._createMoveMarker();
+    },
+
+    _move: function (latlng) {
+        // Move the circle
+        this._shape.setLatLng(latlng);
+    }
+});
+
+L.CircleMarker.addInitHook(function () {
+    if (L.Edit.CircleMarker) {
+        this.editing = new L.Edit.CircleMarker(this);
+
+        if (this.options.editable) {
+            this.editing.enable();
+        }
+    }
+
+    this.on('add', function () {
+        if (this.editing && this.editing.enabled()) {
+            this.editing.addHooks();
+        }
+    });
+
+    this.on('remove', function () {
+        if (this.editing && this.editing.enabled()) {
+            this.editing.removeHooks();
+        }
+    });
 });
 
 /*
@@ -2313,33 +2578,38 @@ L.DrawToolbar = L.Toolbar.extend({
 	},
 
 	getModeHandlers: function (map) {
-		return [
+	    return [
 			{
-				enabled: this.options.polyline,
-				handler: new L.Draw.Polyline(map, this.options.polyline),
-				title: L.drawLocal.draw.toolbar.buttons.polyline
+			    enabled: this.options.polyline,
+			    handler: new L.Draw.Polyline(map, this.options.polyline),
+			    title: L.drawLocal.draw.toolbar.buttons.polyline
 			},
 			{
-				enabled: this.options.polygon,
-				handler: new L.Draw.Polygon(map, this.options.polygon),
-				title: L.drawLocal.draw.toolbar.buttons.polygon
+			    enabled: this.options.polygon,
+			    handler: new L.Draw.Polygon(map, this.options.polygon),
+			    title: L.drawLocal.draw.toolbar.buttons.polygon
 			},
 			{
-				enabled: this.options.rectangle,
-				handler: new L.Draw.Rectangle(map, this.options.rectangle),
-				title: L.drawLocal.draw.toolbar.buttons.rectangle
+			    enabled: this.options.rectangle,
+			    handler: new L.Draw.Rectangle(map, this.options.rectangle),
+			    title: L.drawLocal.draw.toolbar.buttons.rectangle
 			},
 			{
-				enabled: this.options.circle,
-				handler: new L.Draw.Circle(map, this.options.circle),
-				title: L.drawLocal.draw.toolbar.buttons.circle
+			    enabled: this.options.circle,
+			    handler: new L.Draw.Circle(map, this.options.circle),
+			    title: L.drawLocal.draw.toolbar.buttons.circle
 			},
+            {
+                enabled: this.options.circleMarker,
+                handler: new L.Draw.CircleMarker(map, this.options.circleMarker),
+                title: L.drawLocal.draw.toolbar.buttons.circleMarker
+            },
 			{
-				enabled: this.options.marker,
-				handler: new L.Draw.Marker(map, this.options.marker),
-				title: L.drawLocal.draw.toolbar.buttons.marker
+			    enabled: this.options.marker,
+			    handler: new L.Draw.Marker(map, this.options.marker),
+			    title: L.drawLocal.draw.toolbar.buttons.marker
 			}
-		];
+	    ];
 	},
 
 	// Get the actions part of the toolbar
@@ -2539,8 +2809,7 @@ L.EditToolbar.Edit = L.Handler.extend({
 	initialize: function (map, options) {
 		L.Handler.prototype.initialize.call(this, map);
 
-		// Set options to the default unless already set
-		this._selectedPathOptions = options.selectedPathOptions;
+		L.setOptions(this, options);
 
 		// Store the selectable layer group for ease of access
 		this._featureGroup = options.featureGroup;
@@ -2640,7 +2909,7 @@ L.EditToolbar.Edit = L.Handler.extend({
 				this._uneditedLayerProps[id] = {
 					latlngs: L.LatLngUtil.cloneLatLngs(layer.getLatLngs())
 				};
-			} else if (layer instanceof L.Circle) {
+			} else if (layer instanceof L.Circle || layer instanceof L.CircleMarker) {
 				this._uneditedLayerProps[id] = {
 					latlng: L.LatLngUtil.cloneLatLng(layer.getLatLng()),
 					radius: layer.getRadius()
@@ -2660,64 +2929,27 @@ L.EditToolbar.Edit = L.Handler.extend({
 			// Polyline, Polygon or Rectangle
 			if (layer instanceof L.Polyline || layer instanceof L.Polygon || layer instanceof L.Rectangle) {
 				layer.setLatLngs(this._uneditedLayerProps[id].latlngs);
-			} else if (layer instanceof L.Circle) {
+			} else if (layer instanceof L.Circle || layer instanceof L.CircleMarker) {
 				layer.setLatLng(this._uneditedLayerProps[id].latlng);
 				layer.setRadius(this._uneditedLayerProps[id].radius);
 			} else if (layer instanceof L.Marker) { // Marker
 				layer.setLatLng(this._uneditedLayerProps[id].latlng);
 			}
+
+			layer.fire('revert-edited', { layer: layer });
 		}
-	},
-
-	_toggleMarkerHighlight: function (marker) {
-		if (!marker._icon) {
-			return;
-		}
-		// This is quite naughty, but I don't see another way of doing it. (short of setting a new icon)
-		var icon = marker._icon;
-
-		icon.style.display = 'none';
-
-		if (L.DomUtil.hasClass(icon, 'leaflet-edit-marker-selected')) {
-			L.DomUtil.removeClass(icon, 'leaflet-edit-marker-selected');
-			// Offset as the border will make the icon move.
-			this._offsetMarker(icon, -4);
-
-		} else {
-			L.DomUtil.addClass(icon, 'leaflet-edit-marker-selected');
-			// Offset as the border will make the icon move.
-			this._offsetMarker(icon, 4);
-		}
-
-		icon.style.display = '';
-	},
-
-	_offsetMarker: function (icon, offset) {
-		var iconMarginTop = parseInt(icon.style.marginTop, 10) - offset,
-			iconMarginLeft = parseInt(icon.style.marginLeft, 10) - offset;
-
-		icon.style.marginTop = iconMarginTop + 'px';
-		icon.style.marginLeft = iconMarginLeft + 'px';
 	},
 
 	_enableLayerEdit: function (e) {
 		var layer = e.layer || e.target || e,
-			isMarker = layer instanceof L.Marker,
 			pathOptions;
-
-		// Don't do anything if this layer is a marker but doesn't have an icon. Markers
-		// should usually have icons. If using Leaflet.draw with Leafler.markercluster there
-		// is a chance that a marker doesn't.
-		if (isMarker && !layer._icon) {
-			return;
-		}
 
 		// Back up this layer (if haven't before)
 		this._backupLayer(layer);
 
-		// Update layer style so appears editable
-		if (this._selectedPathOptions) {
-			pathOptions = L.Util.extend({}, this._selectedPathOptions);
+		// Set different style for editing mode
+		if (this.options.selectedPathOptions) {
+			pathOptions = L.Util.extend({}, this.options.selectedPathOptions);
 
 			// Use the existing color of the layer
 			if (pathOptions.maintainColor) {
@@ -2725,55 +2957,21 @@ L.EditToolbar.Edit = L.Handler.extend({
 				pathOptions.fillColor = layer.options.fillColor;
 			}
 
-			if (isMarker) {
-				this._toggleMarkerHighlight(layer);
-			} else {
-				layer.options.previousOptions = L.Util.extend({ dashArray: null }, layer.options);
-
-				// Make sure that Polylines are not filled
-				if (!(layer instanceof L.Circle) && !(layer instanceof L.Polygon) && !(layer instanceof L.Rectangle)) {
-					pathOptions.fill = false;
-				}
-
-				layer.setStyle(pathOptions);
-			}
+			layer.options.original = L.extend({}, layer.options);
+			layer.options.editing = pathOptions;
 		}
 
-		if (isMarker) {
-			layer.dragging.enable();
-			layer.on('dragend', this._onMarkerDragEnd);
-		} else {
-			layer.editing.enable();
-		}
+		layer.editing.enable();
 	},
 
 	_disableLayerEdit: function (e) {
 		var layer = e.layer || e.target || e;
+
 		layer.edited = false;
+		layer.editing.disable();
 
-		// Reset layer styles to that of before select
-		if (this._selectedPathOptions) {
-			if (layer instanceof L.Marker) {
-				this._toggleMarkerHighlight(layer);
-			} else {
-				// reset the layer style to what is was before being selected
-				layer.setStyle(layer.options.previousOptions);
-				// remove the cached options for the layer object
-				delete layer.options.previousOptions;
-			}
-		}
-
-		if (layer instanceof L.Marker) {
-			layer.dragging.disable();
-			layer.off('dragend', this._onMarkerDragEnd, this);
-		} else {
-			layer.editing.disable();
-		}
-	},
-
-	_onMarkerDragEnd: function (e) {
-		var layer = e.target;
-		layer.edited = true;
+		delete layer.options.editing;
+		delete layer.options.original;
 	},
 
 	_onMouseMove: function (e) {
@@ -2870,6 +3068,7 @@ L.EditToolbar.Delete = L.Handler.extend({
 		// Iterate of the deleted layers and add them back into the featureGroup
 		this._deletedLayers.eachLayer(function (layer) {
 			this._deletableLayers.addLayer(layer);
+			layer.fire('revert-deleted', { layer: layer });
 		}, this);
 	},
 
@@ -2898,6 +3097,8 @@ L.EditToolbar.Delete = L.Handler.extend({
 		this._deletableLayers.removeLayer(layer);
 
 		this._deletedLayers.addLayer(layer);
+
+		layer.fire('deleted');
 	},
 
 	_onMouseMove: function (e) {
