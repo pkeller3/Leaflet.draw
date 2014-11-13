@@ -29,6 +29,11 @@ L.drawLocal = {
 					start: 'Click and drag to draw circle.'
 				}
 			},
+			circleMarker: {
+			    tooltip: {
+			        start: 'Click to draw circle.',
+			    }
+			},
 			marker: {
 				tooltip: {
 					start: 'Click map to place marker.'
