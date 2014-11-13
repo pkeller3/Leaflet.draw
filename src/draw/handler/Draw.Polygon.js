@@ -9,7 +9,7 @@ L.Draw.Polygon = L.Draw.Polyline.extend({
 		showArea: false,
 		shapeOptions: {
 			stroke: true,
-			color: '#f06eaa',
+			color: '#0033ff',
 			weight: 4,
 			opacity: 0.5,
 			fill: true,
